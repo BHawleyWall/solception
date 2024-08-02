@@ -67,3 +67,18 @@ fn invoking_with_version_flag_prints_version() {
         .success()
         .stdout(predicate::str::contains("solception"));
 }
+
+#[test]
+fn invoking_with_invalid_argument_prints_error() {
+    test_command()
+        .arg("--invalid-argument")
+        .assert()
+        .append_context(
+            "invalid-argument",
+            "Invoking with an invalid argument should print an error message.",
+        )
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("error: unexpected argument"))
+        .stderr(predicate::str::contains("Usage:"));
+}
