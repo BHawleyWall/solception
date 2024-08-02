@@ -1,4 +1,5 @@
 use clap::Parser;
+use solception::lookup_provenance;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about)]
@@ -8,7 +9,15 @@ struct Cli {
 }
 
 fn main() {
-    let _cli = Cli::parse();
+    let cli = Cli::parse();
 
-    std::process::exit(1);
+    let timestamp = lookup_provenance("https://api.mainnet-beta.solana.com", &cli.program_id)
+        .unwrap_or_else(|err| {
+            eprintln!("Error: {}", err);
+            std::process::exit(1);
+        });
+
+    println!("{}", timestamp);
+
+    std::process::exit(0);
 }

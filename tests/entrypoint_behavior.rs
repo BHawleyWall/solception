@@ -8,10 +8,9 @@ const SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
 
 fn test_command() -> assert_cmd::Command {
     assert_cmd::Command::cargo_bin("solc").expect(
-        "The binary should pass compilation and be available at the expected command label.  \
-             This could fail if the code in the `src` directory could not compile, or if this \
-             test code is not correct.  Check the Git blame for both paths to determine the cause \
-             of the failure.",
+        "The binary should pass compilation and be available at the expected command label.  This \
+         could fail if the code in the `src` directory could not compile, or if this test code is \
+         not correct.  Check the Git blame for both paths to determine the cause of the failure.",
     )
 }
 

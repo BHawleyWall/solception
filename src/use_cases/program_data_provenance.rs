@@ -14,9 +14,7 @@ impl ProgramDataProvenance {
         Self { solana }
     }
 
-    pub async fn lookup_provenance(&self, program_id: &str) -> Result<DateTime<Utc>> {
-        self.solana
-            .get_first_deployed_slot_timestamp(program_id)
-            .await
+    pub fn lookup_provenance(&self, program_id: &str) -> Result<DateTime<Utc>> {
+        self.solana.get_first_deployed_slot_timestamp(program_id)
     }
 }
