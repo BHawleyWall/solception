@@ -15,5 +15,5 @@ fn binary_entrypoint_is_invokable() {
         )
         .assert()
         .success()
-        .stdout(predicate::eq("Hello, world!"));
+        .stdout(predicate::eq("Hello, world!\n"));
 }
