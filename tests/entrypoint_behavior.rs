@@ -39,3 +39,18 @@ fn invoking_without_any_argument_prints_short_help() {
             "error: the following required arguments were not provided:",
         ));
 }
+
+#[test]
+fn invoking_with_help_flag_prints_help() {
+    test_command()
+        .arg("--help")
+        .assert()
+        .append_context(
+            "help",
+            "Invoking with the `--help` flag should print the full help message.",
+        )
+        .success()
+        .stdout(predicate::str::contains("Usage:"))
+        .stdout(predicate::str::contains("Arguments:"))
+        .stdout(predicate::str::contains("Options:"));
+}
