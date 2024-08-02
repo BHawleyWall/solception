@@ -22,18 +22,20 @@ fn binary_entrypoint_is_invokable() {
             "The binary should be available at the expected command label.",
         )
         .failure()
-        .code(1);
+        .code(2);
 }
 
 #[test]
-fn invoking_without_any_argument_prints_help() {
+fn invoking_without_any_argument_prints_short_help() {
     test_command()
         .assert()
         .append_context(
             "help",
-            "Invoking with no arguments should print the help message.",
+            "Invoking with no arguments should print a useful help message.",
         )
         .failure()
-        .code(1)
-        .stderr(predicate::str::contains("USAGE:"));
+        .code(2)
+        .stderr(predicate::str::contains(
+            "error: the following required arguments were not provided:",
+        ));
 }
