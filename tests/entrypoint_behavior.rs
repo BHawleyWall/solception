@@ -4,6 +4,8 @@ use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use pretty_assertions::{assert_eq, assert_ne, assert_str_eq};
 
+const SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
+
 fn test_command() -> assert_cmd::Command {
     assert_cmd::Command::cargo_bin("solc").expect(
         "The binary should pass compilation and be available at the expected command label.  \
@@ -81,4 +83,16 @@ fn invoking_with_invalid_argument_prints_error() {
         .code(2)
         .stderr(predicate::str::contains("error: unexpected argument"))
         .stderr(predicate::str::contains("Usage:"));
+}
+
+#[test]
+fn invoking_with_valid_program_id_succeeds() {
+    test_command()
+        .arg(SYSTEM_PROGRAM_ID)
+        .assert()
+        .append_context(
+            "valid-argument",
+            "Invoking with a valid Solana program ID should succeed.",
+        )
+        .success();
 }

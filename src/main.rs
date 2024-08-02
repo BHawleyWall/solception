@@ -14,5 +14,5 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    std::process::exit(0);
+    std::process::exit(1);
 }
