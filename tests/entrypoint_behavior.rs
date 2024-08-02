@@ -54,3 +54,16 @@ fn invoking_with_help_flag_prints_help() {
         .stdout(predicate::str::contains("Arguments:"))
         .stdout(predicate::str::contains("Options:"));
 }
+
+#[test]
+fn invoking_with_version_flag_prints_version() {
+    test_command()
+        .arg("--version")
+        .assert()
+        .append_context(
+            "version",
+            "Invoking with the `--version` flag should print the version of this crate.",
+        )
+        .success()
+        .stdout(predicate::str::contains("solception"));
+}
