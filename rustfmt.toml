@@ -1,0 +1,9 @@
+edition = "2021"
+format_strings = true
+merge_derives = true
+wrap_comments = true
+reorder_impl_items = true
+imports_layout = "HorizontalVertical"
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+version = "Two"
