@@ -17,3 +17,8 @@ solana-sdk = "2.0.3"
 solana-client = "2.0.3"
 solana-cli-config = "2.0.3"
 solana-clap-utils = "2.0.3"
+
+[dev-dependencies]
+assert_cmd = "2.0.15"
+predicates = "3.1.2"
+pretty_assertions = "1.4.0"
