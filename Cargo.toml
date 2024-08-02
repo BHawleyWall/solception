@@ -19,6 +19,7 @@ solana-cli-config = "2.0.3"
 solana-clap-utils = "2.0.3"
 chrono = "0.4.38"
 anyhow = "1.0.86"
+async-trait = "0.1.81"
 
 [dev-dependencies]
 assert_cmd = "2.0.15"
