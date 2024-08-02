@@ -1,3 +1,5 @@
+#![allow(unused_imports, unused_variables, dead_code)]
+
 fn main() {
-    println!("Hello, world!");
+    std::process::exit(0);
 }
