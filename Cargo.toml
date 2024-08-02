@@ -12,3 +12,8 @@ name = "solception"
 path = "src/lib.rs"
 
 [dependencies]
+clap = "4.5.13"
+solana-sdk = "2.0.3"
+solana-client = "2.0.3"
+solana-cli-config = "2.0.3"
+solana-clap-utils = "2.0.3"
