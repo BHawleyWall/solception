@@ -1,7 +1,3 @@
-#![allow(unused_imports, unused_variables, dead_code)]
-
-use std::path::PathBuf;
-
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -12,7 +8,7 @@ struct Cli {
 }
 
 fn main() {
-    let cli = Cli::parse();
+    let _cli = Cli::parse();
 
     std::process::exit(1);
 }
