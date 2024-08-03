@@ -93,5 +93,6 @@ fn invoking_with_valid_program_id_succeeds() {
             "valid-argument",
             "Invoking with a valid Solana program ID should succeed.",
         )
-        .success();
+        .success()
+        .stdout(predicate::str::contains("2024-03-15"));
 }
