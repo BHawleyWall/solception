@@ -14,7 +14,12 @@ use solana_sdk::{
     slot_history::Slot,
     transaction::Transaction,
 };
-use solana_transaction_status::{parse_accounts::ParsedAccount, UiTransactionEncoding};
+use solana_transaction_status::{
+    parse_accounts::ParsedAccount,
+    EncodedTransaction,
+    UiMessage,
+    UiTransactionEncoding,
+};
 
 use crate::use_cases::SolanaQueries;
 
@@ -56,7 +61,12 @@ impl SolanaQueries for SolanaRpc {
         })?;
 
         let bpf_loader_upgradeable =
-            Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").expect("This solanai");
+            Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").expect(
+                "This Solana system program ID failed to parse.  This should only occur if the \
+                 Solana Labs crates have changed the system program ID.  Check the Git blame for \
+                 the Solana Rust SDK to see if related changes were made to the Pubkey object's \
+                 parser or the system IDs.",
+            );
 
         let transactions = self.rpc_client.get_signatures_for_address_with_config(
             &program_id,
@@ -72,19 +82,35 @@ impl SolanaQueries for SolanaRpc {
             .par_iter()
             .filter_map(|txn| {
                 let sig = Signature::from_str(&txn.signature).unwrap();
-                let result = self
-                    .rpc_client
+                self.rpc_client
                     .get_transaction(&sig, UiTransactionEncoding::JsonParsed)
-                    .ok();
-                println!("{} -> {:?}", sig, result);
-                result
+                    .ok()
             })
             .filter(|txn| {
-                txn.transaction.transaction.decode().is_some_and(|tx| {
-                    tx.message
-                        .static_account_keys()
-                        .contains(&bpf_loader_upgradeable)
-                })
+                let encoded_with_meta_txn = txn.transaction.to_owned();
+                println!("\n_~* START *~_\n{:?}\n", encoded_with_meta_txn);
+                let json_ui_txn = encoded_with_meta_txn.transaction;
+                println!("\n{:?}\n", json_ui_txn);
+                match json_ui_txn {
+                    EncodedTransaction::Json(json) => {
+                        println!("\n{:?}\n", json);
+                        match json.message {
+                            UiMessage::Parsed(message) => {
+                                println!("\n{:?}\n_~* END *~_\n", message);
+                                let acct_keys = message
+                                    .account_keys
+                                    .iter()
+                                    .map(|parsed_acct| parsed_acct.pubkey.to_string())
+                                    .collect::<Vec<_>>();
+                                acct_keys
+                                    .iter()
+                                    .any(|acct_key| acct_key == &bpf_loader_upgradeable.to_string())
+                            }
+                            _ => false,
+                        }
+                    }
+                    _ => false,
+                }
             })
             .min_by(|a, b| {
                 a.block_time
