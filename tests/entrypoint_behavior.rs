@@ -98,3 +98,16 @@ fn invoking_with_valid_program_id_succeeds() {
         .success()
         .stdout(predicate::str::contains("2024-08-03T17:11:30+00:00"));
 }
+
+#[test]
+fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_history() {
+    test_command()
+        .arg(MARINADE_STAKING_PROGRAM_ID)
+        .assert()
+        .append_context(
+            "valid-argument",
+            "Invoking with a valid Solana program ID should succeed.",
+        )
+        .success()
+        .stdout(predicate::str::contains("place-holder-for-actual-output"));
+}
