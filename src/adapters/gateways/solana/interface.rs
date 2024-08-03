@@ -73,10 +73,21 @@ impl SolanaQueries for SolanaRpc {
             GetConfirmedSignaturesForAddress2Config {
                 before: None,
                 until: None,
-                limit: None,
+                limit: Some(1),
                 commitment: Some(CommitmentConfig::finalized()),
             },
         )?;
+
+        println!(
+            "Retrieved {} transactions for {}",
+            transactions.len(),
+            program_id
+        );
+        if transactions.is_empty() {
+            return Err(anyhow!(
+                "No transactions found for program_id: {program_id}"
+            ));
+        }
 
         let txn_block_timestamp = transactions
             .par_iter()

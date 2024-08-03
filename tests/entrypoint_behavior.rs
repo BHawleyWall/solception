@@ -5,6 +5,8 @@ use predicates::prelude::*;
 use pretty_assertions::{assert_eq, assert_ne, assert_str_eq};
 
 const MARINADE_STAKING_PROGRAM_ID: &str = "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD";
+const RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS: &str =
+    "HP3G4ptUEd6C4urhjM5sV57RgoarNCPNrWu7vWrCkYWg";
 
 fn test_command() -> assert_cmd::Command {
     assert_cmd::Command::cargo_bin("solc").expect(
@@ -87,12 +89,12 @@ fn invoking_with_invalid_argument_prints_error() {
 #[test]
 fn invoking_with_valid_program_id_succeeds() {
     test_command()
-        .arg(MARINADE_STAKING_PROGRAM_ID)
+        .arg(RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS)
         .assert()
         .append_context(
             "valid-argument",
             "Invoking with a valid Solana program ID should succeed.",
         )
         .success()
-        .stdout(predicate::str::contains("2024-03-15"));
+        .stdout(predicate::str::contains("2024-08-03T17:11:30+00:00"));
 }
