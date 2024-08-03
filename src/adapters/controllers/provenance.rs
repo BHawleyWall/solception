@@ -1,6 +1,4 @@
-#![allow(unused_imports, unused_variables, dead_code)]
-
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use chrono::prelude::*;
 
 use crate::use_cases::{ProgramDataProvenance, SolanaQueries};

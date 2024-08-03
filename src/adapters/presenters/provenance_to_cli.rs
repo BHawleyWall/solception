@@ -1,7 +1,4 @@
-#![allow(unused_imports, unused_variables, dead_code)]
-
-use anyhow::{anyhow, Context, Result};
-use chrono::prelude::*;
+use anyhow::Result;
 
 use crate::{adapters::controllers::ProvenanceAdapter, use_cases::SolanaQueries};
 
@@ -23,6 +20,6 @@ impl ProvenanceToCli {
     pub fn lookup_provenance(&self, program_id: &str) -> Result<String> {
         let timestamp = self.adapter.lookup_provenance(program_id)?;
 
-        Ok(timestamp.to_rfc2822())
+        Ok(timestamp.to_rfc3339())
     }
 }

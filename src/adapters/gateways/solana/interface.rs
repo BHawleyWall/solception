@@ -19,9 +19,7 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
-use solana_client::{
-    rpc_client::RpcClient, rpc_response::RpcConfirmedTransactionStatusWithSignature,
-};
+use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     bpf_loader_upgradeable::UpgradeableLoaderState, pubkey::Pubkey, signature::Signature,
     slot_history::Slot, transaction::Transaction,

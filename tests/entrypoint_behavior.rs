@@ -4,7 +4,7 @@ use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use pretty_assertions::{assert_eq, assert_ne, assert_str_eq};
 
-const SYSTEM_PROGRAM_ID: &str = "11111111111111111111111111111111";
+const MARINADE_STAKING_PROGRAM_ID: &str = "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD";
 
 fn test_command() -> assert_cmd::Command {
     assert_cmd::Command::cargo_bin("solc").expect(
@@ -87,7 +87,7 @@ fn invoking_with_invalid_argument_prints_error() {
 #[test]
 fn invoking_with_valid_program_id_succeeds() {
     test_command()
-        .arg(SYSTEM_PROGRAM_ID)
+        .arg(MARINADE_STAKING_PROGRAM_ID)
         .assert()
         .append_context(
             "valid-argument",
