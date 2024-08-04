@@ -19,8 +19,12 @@ use solana_sdk::{
 };
 use solana_transaction_status::{
     parse_accounts::ParsedAccount,
+    EncodedConfirmedTransactionWithStatusMeta,
     EncodedTransaction,
+    EncodedTransactionWithStatusMeta,
     UiMessage,
+    UiParsedMessage,
+    UiTransaction,
     UiTransactionEncoding,
 };
 
@@ -63,48 +67,13 @@ impl SolanaQueries for SolanaRpc {
             )
         })?;
 
-        let bpf_loader_upgradeable =
-            Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111").expect(
-                "This Solana system program ID failed to parse.  This should only occur if the \
-                 Solana Labs crates have changed the system program ID.  Check the Git blame for \
-                 the Solana Rust SDK to see if related changes were made to the Pubkey object's \
-                 parser or the system IDs.",
-            );
-
-        println!("Retrieving transactions for program_id: {}", program_id);
-        let mut transactions: Vec<RpcConfirmedTransactionStatusWithSignature> = Vec::new();
-        let mut before_sig_opt: Option<Signature> = None;
-        loop {
-            let batch = self.rpc_client.get_signatures_for_address_with_config(
-                &program_id,
-                GetConfirmedSignaturesForAddress2Config {
-                    before: before_sig_opt,
-                    until: None,
-                    limit: None,
-                    commitment: Some(CommitmentConfig::finalized()),
-                },
-            )?;
-
-            let batch_size = batch.len();
-            before_sig_opt = batch
-                .last()
-                .map(|txn| Signature::from_str(&txn.signature).unwrap());
-
-            transactions.extend(batch);
-
-            if batch_size < 1000 {
-                println!("Exiting history crawl loop.");
-                break;
-            } else {
-                println!("Continuing history crawl loop...");
-            }
-        }
-
+        let transactions = crawl_transaction_history(&self.rpc_client, &program_id)?;
         println!(
             "Retrieved {} transactions for {}",
             transactions.len(),
             program_id
         );
+
         if transactions.is_empty() {
             return Err(anyhow!(
                 "No transactions found for program_id: {program_id}"
@@ -119,42 +88,112 @@ impl SolanaQueries for SolanaRpc {
                     .get_transaction(&sig, UiTransactionEncoding::JsonParsed)
                     .ok()
             })
-            .filter(|txn| {
-                let encoded_with_meta_txn = txn.transaction.to_owned();
-                println!("\n_~* START *~_\n{:?}\n", encoded_with_meta_txn);
-                let json_ui_txn = encoded_with_meta_txn.transaction;
-                println!("\n{:?}\n", json_ui_txn);
-                match json_ui_txn {
-                    EncodedTransaction::Json(json) => {
-                        println!("\n{:?}\n", json);
-                        match json.message {
-                            UiMessage::Parsed(message) => {
-                                println!("\n{:?}\n_~* END *~_\n", message);
-                                let acct_keys = message
-                                    .account_keys
-                                    .iter()
-                                    .map(|parsed_acct| parsed_acct.pubkey.to_string())
-                                    .collect::<Vec<_>>();
-                                acct_keys
-                                    .iter()
-                                    .any(|acct_key| acct_key == &bpf_loader_upgradeable.to_string())
-                            }
-                            _ => false,
-                        }
-                    }
-                    _ => false,
-                }
-            })
+            .filter(is_deployment)
             .min_by(|a, b| {
                 a.block_time
                     .unwrap_or_default()
                     .cmp(&b.block_time.unwrap_or_default())
             })
-            .unwrap()
+            .expect(
+                "No deployments details found for the given program ID.  Most likely this is an \
+                 error in input for the address or the network, but the chosen RPC node could be \
+                 missing historical data, or network issues prevented retrieval of any \
+                 transaction details.  Check the program ID on a blockchain explorer to verify \
+                 that it is valid on the chosen network, and has a transaction history with at \
+                 least one BPFLoaderUpgradeab1e transaction.",
+            )
             .block_time
-            .unwrap();
+            .expect(
+                "No block timestamp found on the oldest deployment transaction.  This should not \
+                 be possible, as all finalized transactions have a block timestamp.  Double chack \
+                 the RPC node's historical data using an explorer, and check the Git history for \
+                 the Solana RPC library to see if there have been changes to the structures of \
+                 the transaction data.",
+            );
         let txn_block_time = DateTime::from_timestamp(txn_block_timestamp, 0).unwrap();
 
         Ok(txn_block_time)
     }
+}
+
+fn crawl_transaction_history(
+    rpc_client: &RpcClient,
+    program_id: &Pubkey,
+) -> Result<Vec<RpcConfirmedTransactionStatusWithSignature>> {
+    println!("Retrieving transactions for program_id: {}", program_id);
+
+    const DEFAULT_SERVER_SIDE_LIMIT: usize = 1000;
+
+    let mut transactions: Vec<RpcConfirmedTransactionStatusWithSignature> = Vec::new();
+    let mut before_sig_opt: Option<Signature> = None;
+
+    loop {
+        let batch = rpc_client.get_signatures_for_address_with_config(
+            program_id,
+            GetConfirmedSignaturesForAddress2Config {
+                before: before_sig_opt,
+                until: None,
+                limit: None,
+                commitment: Some(CommitmentConfig::finalized()),
+            },
+        )?;
+
+        let batch_size = batch.len();
+        before_sig_opt = batch
+            .last()
+            .map(|txn| Signature::from_str(&txn.signature).unwrap());
+
+        transactions.extend(batch);
+
+        if batch_size < DEFAULT_SERVER_SIDE_LIMIT {
+            println!("Exiting history crawl loop.");
+            break;
+        } else {
+            println!("Continuing history crawl loop...");
+        }
+    }
+
+    Ok(transactions)
+}
+
+fn is_deployment(rpc_txn: &EncodedConfirmedTransactionWithStatusMeta) -> bool {
+    let encoded_txn = rpc_txn.transaction.to_owned();
+    println!("\n_~* START *~_\n{:?}\n", encoded_txn);
+
+    let json_txn = encoded_txn.transaction;
+    println!("\n{:?}\n", json_txn);
+
+    match json_txn {
+        EncodedTransaction::Json(json) => is_deployment_json(json),
+        _ => false,
+    }
+}
+
+fn is_deployment_json(json: UiTransaction) -> bool {
+    println!("\n{:?}\n", json);
+    match json.message {
+        UiMessage::Parsed(message) => is_deployment_message(message),
+        _ => false,
+    }
+}
+
+fn is_deployment_message(message: UiParsedMessage) -> bool {
+    println!("\n{:?}\n_~* END *~_\n", message);
+
+    let bpf_loader_upgradeable = Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111")
+        .expect(
+            "This Solana system program ID failed to parse.  This should only occur if the Solana \
+             Labs crates have changed the system program ID.  Check the Git blame for the Solana \
+             Rust SDK to see if related changes were made to the Pubkey object's parser or the \
+             system IDs.",
+        );
+
+    let acct_keys = message
+        .account_keys
+        .iter()
+        .map(|parsed_acct| parsed_acct.pubkey.to_string())
+        .collect::<Vec<_>>();
+    acct_keys
+        .iter()
+        .any(|acct_key| acct_key == &bpf_loader_upgradeable.to_string())
 }
