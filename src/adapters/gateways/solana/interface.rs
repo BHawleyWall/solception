@@ -95,7 +95,7 @@ impl SolanaQueries for SolanaRpc {
                     .cmp(&b.block_time.unwrap_or_default())
             })
             .expect(
-                "No deployments details found for the given program ID.  Most likely this is an \
+                "No deployment details found for the given program ID.  Most likely this is an \
                  error in input for the address or the network, but the chosen RPC node could be \
                  missing historical data, or network issues prevented retrieval of any \
                  transaction details.  Check the program ID on a blockchain explorer to verify \
