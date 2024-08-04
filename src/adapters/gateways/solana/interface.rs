@@ -5,7 +5,10 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
 use rayon::prelude::*;
-use solana_client::rpc_client::{GetConfirmedSignaturesForAddress2Config, RpcClient};
+use solana_client::{
+    rpc_client::{GetConfirmedSignaturesForAddress2Config, RpcClient},
+    rpc_response::RpcConfirmedTransactionStatusWithSignature,
+};
 use solana_sdk::{
     bpf_loader_upgradeable::UpgradeableLoaderState,
     commitment_config::CommitmentConfig,
@@ -68,15 +71,39 @@ impl SolanaQueries for SolanaRpc {
                  parser or the system IDs.",
             );
 
-        let transactions = self.rpc_client.get_signatures_for_address_with_config(
-            &program_id,
-            GetConfirmedSignaturesForAddress2Config {
-                before: None,
-                until: None,
-                limit: Some(1),
-                commitment: Some(CommitmentConfig::finalized()),
-            },
-        )?;
+        println!("Retrieving transactions for program_id: {}", program_id);
+        let mut transactions: Vec<RpcConfirmedTransactionStatusWithSignature> = Vec::new();
+        let mut before_sig_opt: Option<Signature> = None;
+        loop {
+            let batch = self.rpc_client.get_signatures_for_address_with_config(
+                &program_id,
+                GetConfirmedSignaturesForAddress2Config {
+                    before: before_sig_opt,
+                    until: None,
+                    limit: None,
+                    commitment: Some(CommitmentConfig::finalized()),
+                },
+            )?;
+
+            let batch_size = batch.len();
+            before_sig_opt = batch
+                .par_iter()
+                .min_by(|a, b| {
+                    a.block_time
+                        .unwrap_or_default()
+                        .cmp(&b.block_time.unwrap_or_default())
+                })
+                .map(|txn| Signature::from_str(&txn.signature).unwrap());
+
+            transactions.extend(batch);
+
+            if batch_size < 1000 {
+                println!("Exiting history crawl loop.");
+                break;
+            } else {
+                println!("Continuing history crawl loop...");
+            }
+        }
 
         println!(
             "Retrieved {} transactions for {}",

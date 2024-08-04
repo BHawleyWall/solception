@@ -109,5 +109,5 @@ fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_histo
             "Invoking with a valid Solana program ID should succeed.",
         )
         .success()
-        .stdout(predicate::str::contains("place-holder-for-actual-output"));
+        .stdout(predicate::str::contains("2022-04-24T11:02:50+00:00")); // MTTR is ~7 hours lol
 }
