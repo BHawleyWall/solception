@@ -87,12 +87,7 @@ impl SolanaQueries for SolanaRpc {
 
             let batch_size = batch.len();
             before_sig_opt = batch
-                .par_iter()
-                .min_by(|a, b| {
-                    a.block_time
-                        .unwrap_or_default()
-                        .cmp(&b.block_time.unwrap_or_default())
-                })
+                .last()
                 .map(|txn| Signature::from_str(&txn.signature).unwrap());
 
             transactions.extend(batch);
