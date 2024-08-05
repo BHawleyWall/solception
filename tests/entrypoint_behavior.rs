@@ -111,13 +111,16 @@ fn invoking_with_verbose_flag_thrice_prints_debug_level_logs() {
         )
         .success()
         .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \u{1b}[34mstarting new connection:",
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \
+             \u{1b}[34mstarting new connection:",
         ))
         .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mhyper::client::connect::dns\u{1b}[0m\u{1b}[34m: \u{1b}[34mresolving host=",
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mhyper::client::connect::dns\u{1b}[0m\u{1b}[34m: \
+             \u{1b}[34mresolving host=",
         ))
         .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mrustls::client::hs\u{1b}[0m\u{1b}[34m: \u{1b}[34mNo cached session for DnsName",
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mrustls::client::hs\u{1b}[0m\u{1b}[34m: \
+             \u{1b}[34mNo cached session for DnsName",
         ));
 }
 
@@ -133,16 +136,22 @@ fn invoking_with_verbose_flag_four_times_prints_trace_level_logs() {
         )
         .success()
         .stdout(predicate::str::contains(
-                "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35msolception::adapters::gateways::telemetry::interface\u{1b}[0m\u{1b}[35m: \u{1b}[35mInitializing tracing with debug level: TRACE\u{1b}[0m"
+            "\u{1b}[35mTRACE\u{1b}[0m \
+             \u{1b}[1;35msolception::adapters::gateways::telemetry::interface\u{1b}[0m\u{1b}[35m: \
+             \u{1b}[35mInitializing tracing with debug level: TRACE\u{1b}[0m",
         ))
         .stdout(predicate::str::contains(
-                "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35mhyper::client::pool\u{1b}[0m\u{1b}[35m: \u{1b}[35mcheckout waiting for idle connection:"
+            "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35mhyper::client::pool\u{1b}[0m\u{1b}[35m: \
+             \u{1b}[35mcheckout waiting for idle connection:",
         ))
         .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \u{1b}[34mstarting new connection:",
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \
+             \u{1b}[34mstarting new connection:",
         ))
         .stdout(predicate::str::contains(
-                "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35mhyper::client::connect::http\u{1b}[0m\u{1b}[35m: \u{1b}[35mHttp::connect; scheme="
+            "\u{1b}[35mTRACE\u{1b}[0m \
+             \u{1b}[1;35mhyper::client::connect::http\u{1b}[0m\u{1b}[35m: \
+             \u{1b}[35mHttp::connect; scheme=",
         ));
 }
 
@@ -184,15 +193,15 @@ fn invoking_with_valid_program_id_succeeds() {
  * the actual delay before the next token refresh on the three applicable
  * throttle limits effecting the client.
  */
-#[test]
-fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_history() {
-    test_command()
-        .arg(MARINADE_STAKING_PROGRAM_ID)
-        .assert()
-        .append_context(
-            "valid-argument",
-            "Invoking with a valid Solana program ID should succeed.",
-        )
-        .success()
-        .stdout(predicate::str::contains("2022-04-24T11:02:50+00:00"));
-}
+//#[test]
+//fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_history() {
+//    test_command()
+//        .arg(MARINADE_STAKING_PROGRAM_ID)
+//        .assert()
+//        .append_context(
+//            "valid-argument",
+//            "Invoking with a valid Solana program ID should succeed.",
+//        )
+//        .success()
+//        .stdout(predicate::str::contains("2022-04-24T11:02:50+00:00"));
+//}

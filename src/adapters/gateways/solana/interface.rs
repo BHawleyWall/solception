@@ -16,6 +16,7 @@ use solana_transaction_status::{
     UiTransaction,
     UiTransactionEncoding,
 };
+use tracing::{debug, instrument, trace, warn};
 
 use crate::use_cases::SolanaQueries;
 
@@ -24,16 +25,19 @@ pub(crate) struct SolanaRpc {
 }
 
 impl SolanaRpc {
+    #[instrument(skip(rpc_client))]
     fn new(rpc_client: RpcClient) -> Self {
         Self { rpc_client }
     }
 
+    #[instrument]
     pub fn new_with_url(rpc_url: &str) -> Self {
         let rpc_client = RpcClient::new(rpc_url.to_string());
 
         Self::new(rpc_client)
     }
 
+    #[instrument]
     pub fn new_with_timeout(rpc_url: &str, timeout: u64) -> Self {
         let rpc_client = RpcClient::new_with_timeout(
             rpc_url.to_string(),
@@ -45,6 +49,7 @@ impl SolanaRpc {
 }
 
 impl SolanaQueries for SolanaRpc {
+    #[instrument(skip(self))]
     fn get_first_deployed_slot_timestamp(&self, program_id: &str) -> Result<DateTime<Utc>> {
         let program_id = Pubkey::from_str(program_id).map_err(|e| {
             anyhow!(
@@ -57,8 +62,8 @@ impl SolanaQueries for SolanaRpc {
         })?;
 
         let transactions = crawl_transaction_history(&self.rpc_client, &program_id)?;
-        println!(
-            "Retrieved {} transactions for {}",
+        debug!(
+            "Retrieved {} transaction summaries for {}",
             transactions.len(),
             program_id
         );
@@ -69,7 +74,7 @@ impl SolanaQueries for SolanaRpc {
             ));
         }
 
-        let txn_block_timestamp = transactions
+        let txn_details = transactions
             .par_iter()
             .filter_map(|txn| {
                 let sig = Signature::from_str(&txn.signature).expect(
@@ -83,19 +88,44 @@ impl SolanaQueries for SolanaRpc {
                     .get_transaction(&sig, UiTransactionEncoding::JsonParsed)
                     .ok()
             })
-            .filter(is_deployment)
+            .collect::<Vec<_>>();
+
+        debug!(
+            "Retrieved {} transaction details for {}",
+            txn_details.len(),
+            program_id
+        );
+
+        if transactions.len() != txn_details.len() {
+            warn!(
+                "Transaction details count does not match transaction summary count.  This should \
+                 not be possible, as the RPC node should be able to return a transaction detail \
+                 for every transaction summary.  Check the trace logs for actual HTTP return \
+                 codes on each attempt."
+            );
+        }
+
+        let deployments = txn_details
+            .par_iter()
+            .filter(|txn| is_deployment(txn))
+            .collect::<Vec<_>>();
+
+        debug!("Found {} deployments for {}", deployments.len(), program_id);
+
+        let txn_block_timestamp = deployments
+            .par_iter()
             .min_by(|a, b| {
                 a.block_time
                     .unwrap_or_default()
                     .cmp(&b.block_time.unwrap_or_default())
             })
             .expect(
-                "No deployment details found for the given program ID.  Most likely this is an \
-                 error in input for the address or the network, but the chosen RPC node could be \
-                 missing historical data, or network issues prevented retrieval of any \
-                 transaction details.  Check the program ID on a blockchain explorer to verify \
-                 that it is valid on the chosen network, and has a transaction history with at \
-                 least one BPFLoaderUpgradeab1e transaction.",
+                "No deployment details found for the given program ID's history.  Most likely \
+                 this is an error in input for the address or the network, but the chosen RPC \
+                 node could be missing historical data, or network issues prevented retrieval of \
+                 some transaction details.  Check the program ID on a blockchain explorer to \
+                 verify that it is valid on the chosen network, and has a transaction history \
+                 with at least one BPFLoaderUpgradeab1e transaction.",
             )
             .block_time
             .expect(
@@ -111,11 +141,12 @@ impl SolanaQueries for SolanaRpc {
     }
 }
 
+#[instrument(skip(rpc_client))]
 fn crawl_transaction_history(
     rpc_client: &RpcClient,
     program_id: &Pubkey,
 ) -> Result<Vec<RpcConfirmedTransactionStatusWithSignature>> {
-    println!("Retrieving transactions for program_id: {}", program_id);
+    debug!("Retrieving transaction details for {program_id}");
 
     const DEFAULT_SERVER_SIDE_LIMIT: usize = 1000;
 
@@ -141,39 +172,47 @@ fn crawl_transaction_history(
         transactions.extend(batch);
 
         if batch_size < DEFAULT_SERVER_SIDE_LIMIT {
-            println!("Exiting history crawl loop.");
+            trace!("Exiting history crawl loop.");
             break;
         } else {
-            println!("Continuing history crawl loop...");
+            trace!("Continuing history crawl loop...");
         }
     }
 
     Ok(transactions)
 }
 
+#[instrument]
 fn is_deployment(rpc_txn: &EncodedConfirmedTransactionWithStatusMeta) -> bool {
     let encoded_txn = rpc_txn.transaction.to_owned();
-    println!("\n_~* START *~_\n{:?}\n", encoded_txn);
+    trace!("{:?}", encoded_txn);
 
     let json_txn = encoded_txn.transaction;
-    println!("\n{:?}\n", json_txn);
+    trace!("{:?}", json_txn);
 
     match json_txn {
         EncodedTransaction::Json(json) => is_deployment_json(json),
         _ => false,
     }
 }
-
+#[instrument]
 fn is_deployment_json(json: UiTransaction) -> bool {
-    println!("\n{:?}\n", json);
+    trace!("{:?}", json);
+
+    debug!(
+        "Checking if transaction {} is a deployment...",
+        json.signatures.first().unwrap()
+    );
+
     match json.message {
         UiMessage::Parsed(message) => is_deployment_message(message),
         _ => false,
     }
 }
 
+#[instrument]
 fn is_deployment_message(message: UiParsedMessage) -> bool {
-    println!("\n{:?}\n_~* END *~_\n", message);
+    trace!("{:?}", message);
 
     let bpf_loader_upgradeable = Pubkey::from_str("BPFLoaderUpgradeab1e11111111111111111111111")
         .expect(
