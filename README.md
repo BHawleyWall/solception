@@ -30,16 +30,18 @@ This tool requires the program ID of the Solana program to be verified. The prog
 
 ### Command Line
 ```bash
-$ solc <program_id>
+$ ./target/release/solc --help
 ```
 
 ### Docker
 ```bash
-$ docker run solc <program_id>
+$ docker run solc --help
 ```
 
 ## Documentation
 The tool uses the Solana RPC API to query the ledger for the timestamp of the program deployment transaction. The program ID is used to query the transaction history of the account and retrieve the timestamp of the first transaction that deployed via the BPF Loader for that account.
+
+These transaction queries are pushed in parallel to the Solana RPC API to speed up the process. The tool uses the `rayon` crate to power the concurrency from a synchronous context.  This bottlenecks the performance directly on the throttling employed by the target RPC node.  Using a private, full-history node with no rate limits is recommended for best performance.
 
 ## License
 This project is licensed under the  GNU General Public License - see the [LICENSE](LICENSE) file for details.
