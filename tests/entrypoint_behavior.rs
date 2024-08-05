@@ -75,6 +75,7 @@ fn invoking_with_version_flag_prints_version() {
 fn invoking_with_verbose_flag_once_prints_warn_level_logs() {
     test_command()
         .arg("--verbose")
+        .arg(RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS)
         .assert()
         .append_context(
             "verbosity",
@@ -88,6 +89,7 @@ fn invoking_with_verbose_flag_once_prints_warn_level_logs() {
 fn invoking_with_verbose_flag_twice_prints_info_level_logs() {
     test_command()
         .arg("-vv")
+        .arg(RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS)
         .assert()
         .append_context(
             "verbosity",
@@ -101,26 +103,47 @@ fn invoking_with_verbose_flag_twice_prints_info_level_logs() {
 fn invoking_with_verbose_flag_thrice_prints_debug_level_logs() {
     test_command()
         .arg("-vvv")
+        .arg(RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS)
         .assert()
         .append_context(
             "verbosity",
             "Invoking with the `--verbose` flag thrice should print DEBUG log events.",
         )
         .success()
-        .stdout(predicate::str::contains("DEBUG-placeholder"));
+        .stdout(predicate::str::contains(
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \u{1b}[34mstarting new connection:",
+        ))
+        .stdout(predicate::str::contains(
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mhyper::client::connect::dns\u{1b}[0m\u{1b}[34m: \u{1b}[34mresolving host=",
+        ))
+        .stdout(predicate::str::contains(
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mrustls::client::hs\u{1b}[0m\u{1b}[34m: \u{1b}[34mNo cached session for DnsName",
+        ));
 }
 
 #[test]
 fn invoking_with_verbose_flag_four_times_prints_trace_level_logs() {
     test_command()
-        .arg("-vvv")
+        .arg("-vvvv")
+        .arg(RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS)
         .assert()
         .append_context(
             "verbosity",
-            "Invoking with the `--verbose` flag four or more times should print TRACE log events.",
+            "Invoking with the `--verbose` flag four times should print TRACE log events.",
         )
         .success()
-        .stdout(predicate::str::contains("TRACE-placeholder"));
+        .stdout(predicate::str::contains(
+                "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35msolception::adapters::gateways::telemetry::interface\u{1b}[0m\u{1b}[35m: \u{1b}[35mInitializing tracing with debug level: TRACE\u{1b}[0m"
+        ))
+        .stdout(predicate::str::contains(
+                "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35mhyper::client::pool\u{1b}[0m\u{1b}[35m: \u{1b}[35mcheckout waiting for idle connection:"
+        ))
+        .stdout(predicate::str::contains(
+            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \u{1b}[34mstarting new connection:",
+        ))
+        .stdout(predicate::str::contains(
+                "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35mhyper::client::connect::http\u{1b}[0m\u{1b}[35m: \u{1b}[35mHttp::connect; scheme="
+        ));
 }
 
 #[test]
