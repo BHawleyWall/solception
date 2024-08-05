@@ -26,8 +26,16 @@ $ docker build -t solc .
 ```
 
 ## Usage
+This tool requires the program ID of the Solana program to be verified. The program ID is a base 58 address for the Program Data Account on the blockchain.
+
+### Command Line
 ```bash
 $ solc <program_id>
+```
+
+### Docker
+```bash
+$ docker run solc <program_id>
 ```
 
 ## Documentation
