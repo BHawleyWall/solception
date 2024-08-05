@@ -4,67 +4,54 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
-use lazy_static::lazy_static;
+use rayon::prelude::*;
 use solana_client::{
-    nonblocking::rpc_client::RpcClient, rpc_client::GetConfirmedSignaturesForAddress2Config,
+    rpc_client::{GetConfirmedSignaturesForAddress2Config, RpcClient},
     rpc_response::RpcConfirmedTransactionStatusWithSignature,
 };
 use solana_sdk::{
-    bpf_loader_upgradeable::UpgradeableLoaderState, commitment_config::CommitmentConfig,
-    pubkey::Pubkey, signature::Signature, slot_history::Slot, transaction::Transaction,
+    bpf_loader_upgradeable::UpgradeableLoaderState,
+    commitment_config::CommitmentConfig,
+    pubkey::Pubkey,
+    signature::Signature,
+    slot_history::Slot,
+    transaction::Transaction,
 };
 use solana_transaction_status::{
-    parse_accounts::ParsedAccount, EncodedConfirmedTransactionWithStatusMeta, EncodedTransaction,
-    EncodedTransactionWithStatusMeta, UiMessage, UiParsedMessage, UiTransaction,
+    parse_accounts::ParsedAccount,
+    EncodedConfirmedTransactionWithStatusMeta,
+    EncodedTransaction,
+    EncodedTransactionWithStatusMeta,
+    UiMessage,
+    UiParsedMessage,
+    UiTransaction,
     UiTransactionEncoding,
 };
-use tokio::{
-    runtime::{Builder, Handle},
-    sync::OnceCell,
-    task::{JoinHandle, JoinSet},
-};
-use tokio_utils::RateLimiter;
 
 use crate::use_cases::SolanaQueries;
 
-static RPC_CLIENT: OnceCell<RpcClient> = OnceCell::const_new();
-
-lazy_static! {
-    static ref RATE_LIMITER: RateLimiter = RateLimiter::new(std::time::Duration::from_millis(300));
-}
-
 pub(crate) struct SolanaRpc {
-    rpc_client: &'static RpcClient,
+    rpc_client: RpcClient,
 }
 
 impl SolanaRpc {
-    fn new(rpc_client: &'static RpcClient) -> Self {
+    fn new(rpc_client: RpcClient) -> Self {
         Self { rpc_client }
     }
 
     pub fn new_with_url(rpc_url: &str) -> Self {
-        RPC_CLIENT.set(RpcClient::new(rpc_url.to_string())).ok();
+        let rpc_client = RpcClient::new(rpc_url.to_string());
 
-        Self::new(RPC_CLIENT.get().expect(
-            "Failed to retrieve lazy set client reference completed immediately before this \
-             within this same constructor.  This should not be possible, and would only occur if \
-             changes were made to this module.  Check the Git blame for clues.",
-        ))
+        Self::new(rpc_client)
     }
 
     pub fn new_with_timeout(rpc_url: &str, timeout: u64) -> Self {
-        RPC_CLIENT
-            .set(RpcClient::new_with_timeout(
-                rpc_url.to_string(),
-                std::time::Duration::from_secs(timeout),
-            ))
-            .ok();
+        let rpc_client = RpcClient::new_with_timeout(
+            rpc_url.to_string(),
+            std::time::Duration::from_secs(timeout),
+        );
 
-        Self::new(RPC_CLIENT.get().expect(
-            "Failed to retrieve lazy set client reference completed immediately before this \
-             within this same constructor.  This should not be possible, and would only occur if \
-             changes were made to this module.  Check the Git blame for clues.",
-        ))
+        Self::new(rpc_client)
     }
 }
 
@@ -80,10 +67,7 @@ impl SolanaQueries for SolanaRpc {
             )
         })?;
 
-        let runtime = Builder::new_multi_thread().enable_all().build()?;
-
-        let transactions =
-            crawl_transaction_history(runtime.handle(), self.rpc_client, &program_id)?;
+        let transactions = crawl_transaction_history(&self.rpc_client, &program_id)?;
         println!(
             "Retrieved {} transactions for {}",
             transactions.len(),
@@ -92,24 +76,19 @@ impl SolanaQueries for SolanaRpc {
 
         if transactions.is_empty() {
             return Err(anyhow!(
-                "No transactions found for program_id: {program_id} .  This could be due to a \
-                 lack of transactions on the network, or the chosen RPC node could be missing \
-                 historical data, or network issues prevented retrieval of any transaction \
-                 details. Check the program ID on a blockchain explorer to verify that it is \
-                 valid on the chosen network, and has a transaction history with at least one \
-                 BPFLoaderUpgradeab1e transaction."
+                "No transactions found for program_id: {program_id}"
             ));
         }
 
-        let txn_results = runtime
-            .block_on(async move { get_all_transactions(self.rpc_client, transactions).await });
-
-        let is_deployment_count = txn_results.iter().filter(|txn| is_deployment(txn)).count();
-        println!("Deployment count: {}", is_deployment_count);
-
-        let txn_block_timestamp = txn_results
-            .iter()
-            .filter(|txn| is_deployment(txn))
+        let txn_block_timestamp = transactions
+            .par_iter()
+            .filter_map(|txn| {
+                let sig = Signature::from_str(&txn.signature).unwrap();
+                self.rpc_client
+                    .get_transaction(&sig, UiTransactionEncoding::JsonParsed)
+                    .ok()
+            })
+            .filter(is_deployment)
             .min_by(|a, b| {
                 a.block_time
                     .unwrap_or_default()
@@ -131,7 +110,6 @@ impl SolanaQueries for SolanaRpc {
                  the Solana RPC library to see if there have been changes to the structures of \
                  the transaction data.",
             );
-
         let txn_block_time = DateTime::from_timestamp(txn_block_timestamp, 0).unwrap();
 
         Ok(txn_block_time)
@@ -139,7 +117,6 @@ impl SolanaQueries for SolanaRpc {
 }
 
 fn crawl_transaction_history(
-    runtime: &Handle,
     rpc_client: &RpcClient,
     program_id: &Pubkey,
 ) -> Result<Vec<RpcConfirmedTransactionStatusWithSignature>> {
@@ -150,22 +127,16 @@ fn crawl_transaction_history(
     let mut transactions: Vec<RpcConfirmedTransactionStatusWithSignature> = Vec::new();
     let mut before_sig_opt: Option<Signature> = None;
 
-    let mut loop_counter = 0;
-    println!("Entering history crawl loop...");
     loop {
-        let batch = runtime.block_on(async move {
-            rpc_client
-                .get_signatures_for_address_with_config(
-                    program_id,
-                    GetConfirmedSignaturesForAddress2Config {
-                        before: before_sig_opt,
-                        until: None,
-                        limit: None,
-                        commitment: Some(CommitmentConfig::finalized()),
-                    },
-                )
-                .await
-        })?;
+        let batch = rpc_client.get_signatures_for_address_with_config(
+            program_id,
+            GetConfirmedSignaturesForAddress2Config {
+                before: before_sig_opt,
+                until: None,
+                limit: None,
+                commitment: Some(CommitmentConfig::finalized()),
+            },
+        )?;
 
         let batch_size = batch.len();
         before_sig_opt = batch
@@ -178,95 +149,11 @@ fn crawl_transaction_history(
             println!("Exiting history crawl loop.");
             break;
         } else {
-            loop_counter += 1;
-            println!("{}", ".".repeat(loop_counter));
+            println!("Continuing history crawl loop...");
         }
     }
 
     Ok(transactions)
-}
-
-async fn get_all_transactions(
-    rpc_client: &'static RpcClient,
-    transactions: Vec<RpcConfirmedTransactionStatusWithSignature>,
-) -> Vec<EncodedConfirmedTransactionWithStatusMeta> {
-    println!(
-        "Retrieving transaction details for {} transactions",
-        transactions.len()
-    );
-    let mut txn_queries = JoinSet::new();
-
-    for transaction in transactions {
-        RATE_LIMITER
-            .throttle(|| async {
-                txn_queries.spawn(get_transaction(
-                    rpc_client,
-                    transaction.signature.to_owned(),
-                ))
-            })
-            .await;
-    }
-
-    let mut results = Vec::new();
-
-    while let Some(result) = txn_queries.join_next().await {
-        match result {
-            Ok(Ok(txn)) => {
-                let txn_time = txn.block_time.unwrap_or_default();
-                results.push(txn);
-                println!("Fan-out task succeeded: {txn_time}");
-            }
-            Ok(Err(e)) => {
-                if e.source()
-                    .unwrap()
-                    .to_string()
-                    .contains("429 Too Many Requests")
-                {
-                    eprintln!("Rate limit exceeded.  Retrying...");
-                    RATE_LIMITER
-                        .throttle(|| async {
-                            txn_queries.spawn(get_transaction(
-                                rpc_client,
-                                e.to_string().split_whitespace().last().unwrap().to_string(),
-                            ));
-                        })
-                        .await;
-                } else {
-                    eprintln!("RPC API Error: {e}");
-                }
-            }
-            _ => {
-                eprintln!("Fan-out task Error: {result:?}");
-            }
-        }
-    }
-
-    println!(
-        "Retrieved transaction details for {} transactions",
-        results.len()
-    );
-    results
-}
-
-async fn spawn_rate_limited_task<F, T>(rate_limiter: &RateLimiter, task: F) -> T
-where
-    F: FnOnce() -> T + Send,
-    T: Send,
-{
-    rate_limiter.throttle(|| async { task() }).await
-}
-
-async fn get_transaction(
-    rpc_client: &RpcClient,
-    signature: String,
-) -> Result<EncodedConfirmedTransactionWithStatusMeta> {
-    let sig = Signature::from_str(signature.as_str()).unwrap();
-    rpc_client
-        .get_transaction(&sig, UiTransactionEncoding::JsonParsed)
-        .await
-        .with_context(|| {
-            format!("Failed to retrieve transaction details for signature: {signature}")
-        })
 }
 
 fn is_deployment(rpc_txn: &EncodedConfirmedTransactionWithStatusMeta) -> bool {
