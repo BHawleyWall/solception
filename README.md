@@ -39,7 +39,7 @@ $ docker run solc <program_id>
 ```
 
 ## Documentation
-The tool uses the Solana RPC API to query the ledger for the timestamp of the program deployment. The tool sends a request to the `getProgramAccounts` endpoint and filters the response to find the account with the specified program ID. The timestamp of the account creation is then extracted and displayed to the user.
+The tool uses the Solana RPC API to query the ledger for the timestamp of the program deployment transaction. The program ID is used to query the transaction history of the account and retrieve the timestamp of the first transaction that deployed via the BPF Loader for that account.
 
 ## License
 This project is licensed under the  GNU General Public License - see the [LICENSE](LICENSE) file for details.
