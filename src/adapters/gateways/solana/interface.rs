@@ -16,9 +16,11 @@ use solana_transaction_status::{
     UiTransaction,
     UiTransactionEncoding,
 };
-use tracing::{debug, instrument, trace, warn};
+use tracing::{debug, info, instrument, trace, warn};
 
 use crate::use_cases::SolanaQueries;
+
+const DEFAULT_SERVER_SIDE_BATCH_LIMIT: usize = 1000;
 
 pub(crate) struct SolanaRpc {
     rpc_client: RpcClient,
@@ -72,6 +74,20 @@ impl SolanaQueries for SolanaRpc {
             return Err(anyhow!(
                 "No transactions found for program_id: {program_id}"
             ));
+        }
+
+        info!(
+            "Retrieving transaction details for program_id: {program_id}.  This may take some \
+             time, depending on the number of transactions and the chosen cluster RPC node's rate \
+             limits."
+        );
+
+        if transactions.len() > DEFAULT_SERVER_SIDE_BATCH_LIMIT {
+            warn!(
+                "The number of transactions for program_id: {program_id} exceeds 1000.  This may \
+                 take a long time to retrieve all transaction details, depending on the chosen \
+                 cluster RPC node's rate limits!"
+            );
         }
 
         let txn_details = transactions
@@ -148,8 +164,6 @@ fn crawl_transaction_history(
 ) -> Result<Vec<RpcConfirmedTransactionStatusWithSignature>> {
     debug!("Retrieving transaction details for {program_id}");
 
-    const DEFAULT_SERVER_SIDE_LIMIT: usize = 1000;
-
     let mut transactions: Vec<RpcConfirmedTransactionStatusWithSignature> = Vec::new();
     let mut before_sig_opt: Option<Signature> = None;
 
@@ -171,7 +185,7 @@ fn crawl_transaction_history(
 
         transactions.extend(batch);
 
-        if batch_size < DEFAULT_SERVER_SIDE_LIMIT {
+        if batch_size < DEFAULT_SERVER_SIDE_BATCH_LIMIT {
             trace!("Exiting history crawl loop.");
             break;
         } else {

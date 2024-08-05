@@ -1,8 +1,4 @@
-#![allow(unused_imports, unused_variables, dead_code)]
-
-use assert_cmd::prelude::*;
 use predicates::prelude::*;
-use pretty_assertions::{assert_eq, assert_ne, assert_str_eq};
 
 const MARINADE_STAKING_PROGRAM_ID: &str = "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD";
 const RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS: &str =
@@ -71,18 +67,43 @@ fn invoking_with_version_flag_prints_version() {
         .stdout(predicate::str::contains("solception"));
 }
 
+/*
+ * This test currently takes ~7 hours to complete against the devnet public
+ * RPC node.
+ *
+ * Against a private full-history node, this test take ~13 minutes to
+ * complete when no other tests are running.  Performance as part of the full
+ * integ suite depends on the node's load at the time of the test run, but
+ * averages around 30 minutes.
+ *
+ * This duration is because the blocking RpcClient respects the HTTP 429
+ * headers from the node, resulting in optimal performance within the
+ * constraints of the node's rate limiting due to the headers communicating
+ * the actual delay before the next token refresh on the three applicable
+ * throttle limits effecting the client.
+ */
 #[test]
 fn invoking_with_verbose_flag_once_prints_warn_level_logs() {
     test_command()
         .arg("--verbose")
-        .arg(RANDOM_DEVNET_PROGRAM_WITH_FEW_DEPLOYMENTS)
+        .arg(MARINADE_STAKING_PROGRAM_ID)
         .assert()
         .append_context(
             "verbosity",
             "Invoking with the `--verbose` flag once should print WARN log events.",
         )
         .success()
-        .stdout(predicate::str::contains("WARN-placeholder"));
+        .stderr(predicate::str::contains("WARN"))
+        .stderr(predicate::str::contains(
+            "solception::adapters::gateways::solana::interface",
+        ))
+        .stderr(predicate::str::contains(
+            "The number of transactions for program_id:",
+        ))
+        .stderr(predicate::str::contains(
+            " exceeds 1000.  This may take a long time to retrieve all transaction details, \
+             depending on the chosen cluster RPC node\'s rate limits!",
+        ));
 }
 
 #[test]
@@ -96,7 +117,11 @@ fn invoking_with_verbose_flag_twice_prints_info_level_logs() {
             "Invoking with the `--verbose` flag twice should print INFO log events.",
         )
         .success()
-        .stdout(predicate::str::contains("INFO-placeholder"));
+        .stdout(predicate::str::contains("INFO"))
+        .stdout(predicate::str::contains(
+            "This may take some time, depending on the number of transactions and the chosen \
+             cluster RPC node's rate limits.",
+        ));
 }
 
 #[test]
@@ -110,18 +135,18 @@ fn invoking_with_verbose_flag_thrice_prints_debug_level_logs() {
             "Invoking with the `--verbose` flag thrice should print DEBUG log events.",
         )
         .success()
+        .stdout(predicate::str::contains("INFO"))
         .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \
-             \u{1b}[34mstarting new connection:",
+            "This may take some time, depending on the number of transactions and the chosen \
+             cluster RPC node's rate limits.",
         ))
-        .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mhyper::client::connect::dns\u{1b}[0m\u{1b}[34m: \
-             \u{1b}[34mresolving host=",
-        ))
-        .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mrustls::client::hs\u{1b}[0m\u{1b}[34m: \
-             \u{1b}[34mNo cached session for DnsName",
-        ));
+        .stdout(predicate::str::contains("DEBUG"))
+        .stdout(predicate::str::contains("reqwest::connect"))
+        .stdout(predicate::str::contains("starting new connection:"))
+        .stdout(predicate::str::contains("hyper::client::connect::dns"))
+        .stdout(predicate::str::contains("resolving host="))
+        .stdout(predicate::str::contains("rustls::client::hs"))
+        .stdout(predicate::str::contains("No cached session for DnsName"));
 }
 
 #[test]
@@ -135,24 +160,27 @@ fn invoking_with_verbose_flag_four_times_prints_trace_level_logs() {
             "Invoking with the `--verbose` flag four times should print TRACE log events.",
         )
         .success()
+        .stdout(predicate::str::contains("INFO"))
         .stdout(predicate::str::contains(
-            "\u{1b}[35mTRACE\u{1b}[0m \
-             \u{1b}[1;35msolception::adapters::gateways::telemetry::interface\u{1b}[0m\u{1b}[35m: \
-             \u{1b}[35mInitializing tracing with debug level: TRACE\u{1b}[0m",
+            "This may take some time, depending on the number of transactions and the chosen \
+             cluster RPC node's rate limits.",
+        ))
+        .stdout(predicate::str::contains("TRACE"))
+        .stdout(predicate::str::contains(
+            "solception::adapters::gateways::telemetry::interface",
         ))
         .stdout(predicate::str::contains(
-            "\u{1b}[35mTRACE\u{1b}[0m \u{1b}[1;35mhyper::client::pool\u{1b}[0m\u{1b}[35m: \
-             \u{1b}[35mcheckout waiting for idle connection:",
+            "Initializing tracing with debug level: TRACE",
         ))
+        .stdout(predicate::str::contains("hyper::client::pool"))
         .stdout(predicate::str::contains(
-            "\u{1b}[34mDEBUG\u{1b}[0m \u{1b}[1;34mreqwest::connect\u{1b}[0m\u{1b}[34m: \
-             \u{1b}[34mstarting new connection:",
+            "checkout waiting for idle connection:",
         ))
-        .stdout(predicate::str::contains(
-            "\u{1b}[35mTRACE\u{1b}[0m \
-             \u{1b}[1;35mhyper::client::connect::http\u{1b}[0m\u{1b}[35m: \
-             \u{1b}[35mHttp::connect; scheme=",
-        ));
+        .stdout(predicate::str::contains("DEBUG"))
+        .stdout(predicate::str::contains("reqwest::connect"))
+        .stdout(predicate::str::contains("starting new connection:"))
+        .stdout(predicate::str::contains("hyper::client::connect::http"))
+        .stdout(predicate::str::contains("Http::connect; scheme="));
 }
 
 #[test]
@@ -187,21 +215,26 @@ fn invoking_with_valid_program_id_succeeds() {
  * This test currently takes ~7 hours to complete against the devnet public
  * RPC node.
  *
+ * Against a private full-history node, this test take ~13 minutes to
+ * complete when no other tests are running.  Performance as part of the full
+ * integ suite depends on the node's load at the time of the test run, but
+ * averages around 30 minutes.
+ *
  * This duration is because the blocking RpcClient respects the HTTP 429
  * headers from the node, resulting in optimal performance within the
  * constraints of the node's rate limiting due to the headers communicating
  * the actual delay before the next token refresh on the three applicable
  * throttle limits effecting the client.
  */
-//#[test]
-//fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_history() {
-//    test_command()
-//        .arg(MARINADE_STAKING_PROGRAM_ID)
-//        .assert()
-//        .append_context(
-//            "valid-argument",
-//            "Invoking with a valid Solana program ID should succeed.",
-//        )
-//        .success()
-//        .stdout(predicate::str::contains("2022-04-24T11:02:50+00:00"));
-//}
+#[test]
+fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_history() {
+    test_command()
+        .arg(MARINADE_STAKING_PROGRAM_ID)
+        .assert()
+        .append_context(
+            "valid-argument",
+            "Invoking with a valid Solana program ID should succeed.",
+        )
+        .success()
+        .stdout(predicate::str::contains("2022-04-24T11:02:50+00:00"));
+}
