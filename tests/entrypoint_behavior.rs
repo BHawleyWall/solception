@@ -103,7 +103,7 @@ fn invoking_with_valid_program_id_succeeds() {
  * This test currently takes ~7 hours to complete against the devnet public
  * RPC node.
  *
- * This duration is because the non-blocking RpcClient respects the HTTP 429
+ * This duration is because the blocking RpcClient respects the HTTP 429
  * headers from the node, resulting in optimal performance within the
  * constraints of the node's rate limiting due to the headers communicating
  * the actual delay before the next token refresh on the three applicable
