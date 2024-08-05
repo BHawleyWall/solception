@@ -72,6 +72,58 @@ fn invoking_with_version_flag_prints_version() {
 }
 
 #[test]
+fn invoking_with_verbose_flag_once_prints_warn_level_logs() {
+    test_command()
+        .arg("--verbose")
+        .assert()
+        .append_context(
+            "verbosity",
+            "Invoking with the `--verbose` flag once should print WARN log events.",
+        )
+        .success()
+        .stdout(predicate::str::contains("WARN-placeholder"));
+}
+
+#[test]
+fn invoking_with_verbose_flag_twice_prints_info_level_logs() {
+    test_command()
+        .arg("-vv")
+        .assert()
+        .append_context(
+            "verbosity",
+            "Invoking with the `--verbose` flag twice should print INFO log events.",
+        )
+        .success()
+        .stdout(predicate::str::contains("INFO-placeholder"));
+}
+
+#[test]
+fn invoking_with_verbose_flag_thrice_prints_debug_level_logs() {
+    test_command()
+        .arg("-vvv")
+        .assert()
+        .append_context(
+            "verbosity",
+            "Invoking with the `--verbose` flag thrice should print DEBUG log events.",
+        )
+        .success()
+        .stdout(predicate::str::contains("DEBUG-placeholder"));
+}
+
+#[test]
+fn invoking_with_verbose_flag_four_times_prints_trace_level_logs() {
+    test_command()
+        .arg("-vvv")
+        .assert()
+        .append_context(
+            "verbosity",
+            "Invoking with the `--verbose` flag four or more times should print TRACE log events.",
+        )
+        .success()
+        .stdout(predicate::str::contains("TRACE-placeholder"));
+}
+
+#[test]
 fn invoking_with_invalid_argument_prints_error() {
     test_command()
         .arg("--invalid-argument")
