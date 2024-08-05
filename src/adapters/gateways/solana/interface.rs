@@ -1,27 +1,16 @@
-#![allow(unused_imports, unused_variables, dead_code)]
-
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use chrono::prelude::*;
 use rayon::prelude::*;
 use solana_client::{
     rpc_client::{GetConfirmedSignaturesForAddress2Config, RpcClient},
     rpc_response::RpcConfirmedTransactionStatusWithSignature,
 };
-use solana_sdk::{
-    bpf_loader_upgradeable::UpgradeableLoaderState,
-    commitment_config::CommitmentConfig,
-    pubkey::Pubkey,
-    signature::Signature,
-    slot_history::Slot,
-    transaction::Transaction,
-};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
 use solana_transaction_status::{
-    parse_accounts::ParsedAccount,
     EncodedConfirmedTransactionWithStatusMeta,
     EncodedTransaction,
-    EncodedTransactionWithStatusMeta,
     UiMessage,
     UiParsedMessage,
     UiTransaction,
@@ -83,7 +72,13 @@ impl SolanaQueries for SolanaRpc {
         let txn_block_timestamp = transactions
             .par_iter()
             .filter_map(|txn| {
-                let sig = Signature::from_str(&txn.signature).unwrap();
+                let sig = Signature::from_str(&txn.signature).expect(
+                    "Failed to parse transaction signature taken directly from RPC response \
+                     content.  This should only occur if this module's codepath was changed or \
+                     the Solana Labs crates have changed the signature format.  Check the Git \
+                     blame for this module first and then the Solana Rust SDK to see if related \
+                     changes were made to the Signature object's parser.",
+                );
                 self.rpc_client
                     .get_transaction(&sig, UiTransactionEncoding::JsonParsed)
                     .ok()
