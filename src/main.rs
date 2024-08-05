@@ -5,7 +5,7 @@ use solception::lookup_provenance;
 #[command(version, about, long_about)]
 struct Cli {
     /// Required argument for the target program on Solana in the form of its
-    /// base 64 public key.
+    /// base 58 public key.
     program_id: String,
 }
 
