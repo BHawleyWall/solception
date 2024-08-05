@@ -99,6 +99,16 @@ fn invoking_with_valid_program_id_succeeds() {
         .stdout(predicate::str::contains("2024-08-03T17:11:30+00:00"));
 }
 
+/*
+ * This test currently takes ~7 hours to complete against the devnet public
+ * RPC node.
+ *
+ * This duration is because the non-blocking RpcClient respects the HTTP 429
+ * headers from the node, resulting in optimal performance within the
+ * constraints of the node's rate limiting due to the headers communicating
+ * the actual delay before the next token refresh on the three applicable
+ * throttle limits effecting the client.
+ */
 #[test]
 fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_history() {
     test_command()
@@ -109,5 +119,5 @@ fn invoking_with_an_extreme_history_correctly_paginates_the_full_available_histo
             "Invoking with a valid Solana program ID should succeed.",
         )
         .success()
-        .stdout(predicate::str::contains("2022-04-24T11:02:50+00:00")); // MTTR is ~7 hours lol
+        .stdout(predicate::str::contains("2022-04-24T11:02:50+00:00"));
 }
